@@ -42,7 +42,7 @@ The Vercel project should use the `moraguide-frontend` folder as its Root Direct
 
 1. Push the repository to GitHub. The root `.gitignore` excludes local database files and environment files; do not commit real user data or secrets.
 2. Deploy `moraguide-backend` to a Node host that supports persistent disks. Set `DATABASE_PATH` to a file on the mounted disk, such as `/var/data/Moraguide.sqlite`, and set `NODE_ENV=production` and `FRONTEND_ORIGIN` to the exact Vercel site origin (for example, `https://your-guide.vercel.app`). Set the backend build command to `npm install` and the start command to `npm start`.
-3. In Vercel, import the GitHub repository and set Root Directory to `moraguide-frontend`. Add the environment variable `VITE_API_BASE_URL` with the backend's HTTPS origin (currently `https://mora-guide-moraguide-backend.vercel.app`), then deploy.
+3. In Vercel, import the GitHub repository and set Root Directory to `moraguide-frontend`. Add the environment variable `VITE_API_URL` with the backend's HTTPS origin (currently `https://mora-guide-moraguide-backend.vercel.app`), then deploy.
 4. After changing either deployment's environment variables, redeploy it. If you use Vercel preview domains, add each allowed frontend origin to the backend's comma-separated `FRONTEND_ORIGIN` value.
 
 The backend allows credentialed requests only from the configured frontend origins and uses secure cross-site session cookies in production. Browsers may restrict third-party cookies when the frontend and backend use unrelated domains; custom frontend/API domains under the same site are recommended for reliable login sessions.

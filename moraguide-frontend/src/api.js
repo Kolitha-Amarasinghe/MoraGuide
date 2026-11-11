@@ -1,4 +1,6 @@
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '');
+const apiBaseUrl = (import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || '')
+  .trim()
+  .replace(/\/+$/, '');
 
 export function getApiUrl(path) {
   if (/^(https?:|blob:|data:)/i.test(path)) return path;
