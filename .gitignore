@@ -2,5 +2,12 @@ node_modules/
 **/node_modules/
 **/dist/
 **/.env
+**/.env.*
+!**/.env.example
+*.sqlite
+*.sqlite3
+*.db
+*-shm
+*-wal
 moraguide-backend/uploads/profile-images/
 npm-debug.log*
