@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "description": "MoraGuide React frontend and Express/SQLite backend",
+  "workspaces": [
+    "moraguide-backend",
+    "moraguide-frontend"
+  ],
   "scripts": {
     "dev": "concurrently -k -n api,web -c blue,green \"npm --prefix moraguide-backend run dev\" \"npm --prefix moraguide-frontend run dev\"",
     "build": "npm --prefix moraguide-frontend run build",

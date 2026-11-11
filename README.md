@@ -11,8 +11,6 @@ From the project root, install dependencies and initialize the app:
 
 ```powershell
 npm install
-npm --prefix moraguide-backend install
-npm --prefix moraguide-frontend install
 Copy-Item .\moraguide-backend\.env.example .\moraguide-backend\.env
 npm run seed
 ```
