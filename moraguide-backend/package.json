@@ -2,7 +2,7 @@
   "name": "moraguide-backend",
   "version": "1.0.0",
   "private": true,
-  "description": "Express and SQLite API for MoraGuide",
+  "description": "Express API for MoraGuide using SQLite locally and Turso in production",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -15,6 +15,7 @@
     "node": ">=20"
   },
   "dependencies": {
+    "@tursodatabase/serverless": "^1.4.1",
     "bcryptjs": "^3.0.3",
     "dotenv": "^16.4.7",
     "express": "^5.1.0",

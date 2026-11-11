@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { all, get, run } = require('../config/db');
+const { all, get, run, withTransaction } = require('../config/db');
 const { profileImageDirectory, profileImageUrlPrefix } = require('../config/profileImages');
 const { clearSessionCookie, createSession } = require('../middleware/auth');
 
@@ -26,6 +26,11 @@ async function getUser(userId) {
 
 function isNonEmptyText(value, maxLength) {
     return typeof value === 'string' && value.trim().length > 0 && value.trim().length <= maxLength;
+}
+
+function isUniqueConstraintError(error) {
+    return /UNIQUE constraint failed/i.test(error.message || '') ||
+        /SQLITE_CONSTRAINT_UNIQUE/.test(`${error.code || ''} ${error.extendedCode || ''}`);
 }
 
 async function login(request, response) {
@@ -78,44 +83,44 @@ async function register(request, response) {
     const passwordHash = await bcrypt.hash(password, 12);
     let userId;
     try {
-        await run('BEGIN IMMEDIATE TRANSACTION');
-        const inserted = await run(
-            'INSERT INTO users (firstName, lastName, email, password, phone, role) VALUES (?, ?, ?, ?, ?, ?)',
-            [
-                firstName.trim(),
-                lastName.trim(),
-                normalizedEmail,
-                passwordHash,
-                typeof request.body.phone === 'string' ? request.body.phone.trim() || null : null,
-                role
-            ]
-        );
-        userId = inserted.id;
+        userId = await withTransaction(async ({ run: transactionRun }) => {
+            const inserted = await transactionRun(
+                'INSERT INTO users (firstName, lastName, email, password, phone, role) VALUES (?, ?, ?, ?, ?, ?)',
+                [
+                    firstName.trim(),
+                    lastName.trim(),
+                    normalizedEmail,
+                    passwordHash,
+                    typeof request.body.phone === 'string' ? request.body.phone.trim() || null : null,
+                    role
+                ]
+            );
+            const insertedUserId = inserted.id;
 
-        if (role === 'student') {
-            await run(
-                'INSERT INTO student (userId, registrationNumber, faculty, department) VALUES (?, ?, ?, ?)',
-                [
-                    userId,
-                    request.body.registrationNumber.trim(),
-                    typeof request.body.faculty === 'string' ? request.body.faculty.trim() || null : null,
-                    typeof request.body.department === 'string' ? request.body.department.trim() || null : null
-                ]
-            );
-        } else {
-            await run(
-                'INSERT INTO organizer (userId, organizationName, designation) VALUES (?, ?, ?)',
-                [
-                    userId,
-                    typeof request.body.organizationName === 'string' ? request.body.organizationName.trim() || null : null,
-                    typeof request.body.designation === 'string' ? request.body.designation.trim() || null : null
-                ]
-            );
-        }
-        await run('COMMIT');
+            if (role === 'student') {
+                await transactionRun(
+                    'INSERT INTO student (userId, registrationNumber, faculty, department) VALUES (?, ?, ?, ?)',
+                    [
+                        insertedUserId,
+                        request.body.registrationNumber.trim(),
+                        typeof request.body.faculty === 'string' ? request.body.faculty.trim() || null : null,
+                        typeof request.body.department === 'string' ? request.body.department.trim() || null : null
+                    ]
+                );
+            } else {
+                await transactionRun(
+                    'INSERT INTO organizer (userId, organizationName, designation) VALUES (?, ?, ?)',
+                    [
+                        insertedUserId,
+                        typeof request.body.organizationName === 'string' ? request.body.organizationName.trim() || null : null,
+                        typeof request.body.designation === 'string' ? request.body.designation.trim() || null : null
+                    ]
+                );
+            }
+            return insertedUserId;
+        });
     } catch (error) {
-        await run('ROLLBACK');
-        if (error.code === 'SQLITE_CONSTRAINT' && /(?:UNIQUE|PRIMARY KEY) constraint failed/.test(error.message)) {
+        if (isUniqueConstraintError(error)) {
             return response.status(409).json({ error: 'That email or registration number is already in use.' });
         }
         throw error;
@@ -166,62 +171,61 @@ async function updateProfile(request, response) {
     }
 
     try {
-        await run('BEGIN IMMEDIATE TRANSACTION');
-        if (userUpdates.length) {
-            userParams.push(request.user.id);
-            await run(`UPDATE users SET ${userUpdates.join(', ')} WHERE userId = ?`, userParams);
-        }
+        await withTransaction(async ({ run: transactionRun }) => {
+            if (userUpdates.length) {
+                userParams.push(request.user.id);
+                await transactionRun(`UPDATE users SET ${userUpdates.join(', ')} WHERE userId = ?`, userParams);
+            }
 
-        if (request.user.role === 'student') {
-            const studentUpdates = [];
-            const studentParams = [];
-            for (const field of ['registrationNumber', 'faculty', 'department']) {
-                if (updates[field] !== undefined) {
-                    if (typeof updates[field] !== 'string') {
-                        throw Object.assign(new Error(`${field} must be text.`), { status: 400 });
+            if (request.user.role === 'student') {
+                const studentUpdates = [];
+                const studentParams = [];
+                for (const field of ['registrationNumber', 'faculty', 'department']) {
+                    if (updates[field] !== undefined) {
+                        if (typeof updates[field] !== 'string') {
+                            throw Object.assign(new Error(`${field} must be text.`), { status: 400 });
+                        }
+                        const value = updates[field].trim();
+                        const limit = field === 'registrationNumber' ? 30 : 100;
+                        if ((field === 'registrationNumber' && !value) || value.length > limit) {
+                            throw Object.assign(new Error('Enter a valid student registration number or profile value.'), { status: 400 });
+                        }
+                        studentUpdates.push(`${field} = ?`);
+                        studentParams.push(value || null);
                     }
-                    const value = updates[field].trim();
-                    const limit = field === 'registrationNumber' ? 30 : 100;
-                    if ((field === 'registrationNumber' && !value) || value.length > limit) {
-                        throw Object.assign(new Error('Enter a valid student registration number or profile value.'), { status: 400 });
+                }
+                if (studentUpdates.length) {
+                    studentParams.push(request.user.id);
+                    await transactionRun(`UPDATE student SET ${studentUpdates.join(', ')} WHERE userId = ?`, studentParams);
+                }
+            } else if (request.user.role === 'organizer') {
+                const organizerUpdates = [];
+                const organizerParams = [];
+                for (const field of ['organizationName', 'designation']) {
+                    if (updates[field] !== undefined) {
+                        if (typeof updates[field] !== 'string') {
+                            throw Object.assign(new Error(`${field} must be text.`), { status: 400 });
+                        }
+                        const value = updates[field].trim();
+                        const limit = field === 'organizationName' ? 150 : 100;
+                        if (value.length > limit) {
+                            throw Object.assign(new Error(`${field} is too long.`), { status: 400 });
+                        }
+                        organizerUpdates.push(`${field} = ?`);
+                        organizerParams.push(value || null);
                     }
-                    studentUpdates.push(`${field} = ?`);
-                    studentParams.push(value || null);
+                }
+                if (organizerUpdates.length) {
+                    organizerParams.push(request.user.id);
+                    await transactionRun(`UPDATE organizer SET ${organizerUpdates.join(', ')} WHERE userId = ?`, organizerParams);
                 }
             }
-            if (studentUpdates.length) {
-                studentParams.push(request.user.id);
-                await run(`UPDATE student SET ${studentUpdates.join(', ')} WHERE userId = ?`, studentParams);
-            }
-        } else if (request.user.role === 'organizer') {
-            const organizerUpdates = [];
-            const organizerParams = [];
-            for (const field of ['organizationName', 'designation']) {
-                if (updates[field] !== undefined) {
-                    if (typeof updates[field] !== 'string') {
-                        throw Object.assign(new Error(`${field} must be text.`), { status: 400 });
-                    }
-                    const value = updates[field].trim();
-                    const limit = field === 'organizationName' ? 150 : 100;
-                    if (value.length > limit) {
-                        throw Object.assign(new Error(`${field} is too long.`), { status: 400 });
-                    }
-                    organizerUpdates.push(`${field} = ?`);
-                    organizerParams.push(value || null);
-                }
-            }
-            if (organizerUpdates.length) {
-                organizerParams.push(request.user.id);
-                await run(`UPDATE organizer SET ${organizerUpdates.join(', ')} WHERE userId = ?`, organizerParams);
-            }
-        }
-        await run('COMMIT');
+        });
     } catch (error) {
-        await run('ROLLBACK');
         if (error.status) {
             return response.status(error.status).json({ error: error.message });
         }
-        if (error.code === 'SQLITE_CONSTRAINT' && error.message.includes('UNIQUE constraint failed')) {
+        if (isUniqueConstraintError(error)) {
             return response.status(409).json({ error: 'That student registration number is already in use.' });
         }
         throw error;

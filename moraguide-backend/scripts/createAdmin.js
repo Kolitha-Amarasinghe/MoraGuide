@@ -38,6 +38,6 @@ createAdmin()
         process.exitCode = 1;
     })
     .finally(() => closeDatabase().catch(error => {
-        console.error('Failed to close SQLite database:', error);
+        console.error('Failed to close database:', error);
         process.exitCode = 1;
     }));

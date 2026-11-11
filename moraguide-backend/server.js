@@ -60,6 +60,16 @@ app.use('/api', (request, response, next) => {
     }
     next();
 });
+let databaseInitialization;
+app.use((request, response, next) => {
+    if (!databaseInitialization) {
+        databaseInitialization = connectToDatabase().catch(error => {
+            databaseInitialization = undefined;
+            throw error;
+        });
+    }
+    databaseInitialization.then(() => next()).catch(next);
+});
 
 app.use(express.static(frontendDist, { index: false }));
 app.use('/uploads/profile-images', express.static(profileImageDirectory, {
@@ -139,16 +149,20 @@ async function shutdown(signal) {
     process.exit(0);
 }
 
-process.on('SIGINT', () => shutdown('SIGINT').catch(error => {
-    console.error('Shutdown failed:', error);
-    process.exit(1);
-}));
-process.on('SIGTERM', () => shutdown('SIGTERM').catch(error => {
-    console.error('Shutdown failed:', error);
-    process.exit(1);
-}));
+module.exports = app;
 
-start().catch(error => {
-    console.error('Server startup failed:', error);
-    process.exitCode = 1;
-});
+if (require.main === module) {
+    process.on('SIGINT', () => shutdown('SIGINT').catch(error => {
+        console.error('Shutdown failed:', error);
+        process.exit(1);
+    }));
+    process.on('SIGTERM', () => shutdown('SIGTERM').catch(error => {
+        console.error('Shutdown failed:', error);
+        process.exit(1);
+    }));
+
+    start().catch(error => {
+        console.error('Server startup failed:', error);
+        process.exitCode = 1;
+    });
+}

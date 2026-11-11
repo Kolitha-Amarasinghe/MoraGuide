@@ -1,6 +1,6 @@
 require('dotenv').config();
 
-const { connectToDatabase, getDatabase } = require('../config/db');
+const { closeDatabase, connectToDatabase, run } = require('../config/db');
 
 const places = [
     { name: 'Main Gate', category: 'Gates', lat: 6.7951, lng: 79.9009, description: 'Main entrance to the University of Moratuwa campus.', icon: 'fa-door-open' },
@@ -26,22 +26,18 @@ const faqs = [
 
 async function seed() {
     await connectToDatabase();
-    const db = getDatabase();
-
-    const insertPlace = db.prepare(`
-        INSERT OR IGNORE INTO place (placeName, category, description, latitude, longitude, icon)
-        VALUES (?, ?, ?, ?, ?, ?)
-    `);
-    const insertFaq = db.prepare(`
-        INSERT OR IGNORE INTO faq (question, answer)
-        VALUES (?, ?)
-    `);
 
     for (const place of places) {
-        insertPlace.run(place.name, place.category, place.description, place.lat, place.lng, place.icon);
+        await run(`
+            INSERT OR IGNORE INTO place (placeName, category, description, latitude, longitude, icon)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `, [place.name, place.category, place.description, place.lat, place.lng, place.icon]);
     }
     for (const faq of faqs) {
-        insertFaq.run(faq.question, faq.answer);
+        await run(`
+            INSERT OR IGNORE INTO faq (question, answer)
+            VALUES (?, ?)
+        `, [faq.question, faq.answer]);
     }
 
     console.log(`Seed complete: ${places.length} places and ${faqs.length} FAQs.`);
@@ -51,4 +47,8 @@ seed()
     .catch(error => {
         console.error('Database seeding failed:', error);
         process.exitCode = 1;
-    });
+    })
+    .finally(() => closeDatabase().catch(error => {
+        console.error('Failed to close database:', error);
+        process.exitCode = 1;
+    }));

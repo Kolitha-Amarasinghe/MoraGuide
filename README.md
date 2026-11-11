@@ -1,11 +1,11 @@
 # MoraGuide
 
-MoraGuide is a campus guide for the University of Moratuwa with an Express API and SQLite database. The production backend serves the compiled React frontend.
+MoraGuide is a campus guide for the University of Moratuwa with a React frontend and Express API. The backend uses SQLite for local development and can use Turso for persistent production data.
 
 ## Requirements and setup
 
 - Node.js 20+
-- SQLite is bundled through the backend dependency; no database server is required.
+- SQLite is bundled through the backend dependency for local development; no database server is required.
 
 From the project root, install dependencies and initialize the app:
 
@@ -15,7 +15,7 @@ Copy-Item .\moraguide-backend\.env.example .\moraguide-backend\.env
 npm run seed
 ```
 
-By default, the SQLite database is `Moraguide.sqlite` in the project root. `DATABASE_PATH` in `moraguide-backend/.env` can point to another file. On startup, the backend creates the tables and migrates events from the earlier SQLite schema without removing them.
+By default, the SQLite database is `Moraguide.sqlite` in the project root. `DATABASE_PATH` in `moraguide-backend/.env` can point to another file. On startup, the backend creates the tables and migrates events from the earlier SQLite schema without removing them. To use Turso locally, set `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` in the backend `.env`; when the URL is set, the backend uses Turso instead of the local SQLite file.
 
 The `Moraguide.sql` file is a MySQL-style schema reference; the running app uses SQLite and initializes its schema in the backend. Do not execute its `DROP DATABASE` statement against a database containing data.
 
@@ -36,20 +36,23 @@ npm start
 
 Then open `http://localhost:3000`. Check `http://localhost:3000/api/health` for database status.
 
-## Deploy the frontend to Vercel
+## Deploy the frontend and backend to Vercel
 
-The Vercel project should use the `moraguide-frontend` folder as its Root Directory. Vercel uses the included `vercel.json` to build the Vite frontend into `dist`. The Express API and SQLite database must run separately on a host with persistent disk storage; Vercel's function filesystem is not a persistent SQLite database.
+Deploy the frontend and API as separate Vercel projects. The frontend uses the `moraguide-frontend` folder as its Root Directory and its included `vercel.json` builds the Vite app into `dist`. The backend uses the `moraguide-backend` folder as its Root Directory; its `vercel.json` exposes the Express API as a Vercel Function. Production data is stored in Turso because Vercel's function filesystem is not persistent.
 
 1. Push the repository to GitHub. The root `.gitignore` excludes local database files and environment files; do not commit real user data or secrets.
-2. Deploy `moraguide-backend` to a Node host that supports persistent disks. Set `DATABASE_PATH` to a file on the mounted disk, such as `/var/data/Moraguide.sqlite`, and set `NODE_ENV=production` and `FRONTEND_ORIGIN` to `https://mora-guide-ut2w.vercel.app` (plus any preview origins you use). Set the backend build command to `npm install` and the start command to `npm start`.
-3. In Vercel, import the GitHub repository and set Root Directory to `moraguide-frontend`. Add the environment variable `VITE_API_URL` with the backend's HTTPS origin (currently `https://mora-guide-moraguide-backend.vercel.app`), then deploy.
-4. After changing either deployment's environment variables, redeploy it. If you use Vercel preview domains, add each allowed frontend origin to the backend's comma-separated `FRONTEND_ORIGIN` value.
+2. Create a Turso database and an authentication token in Turso. In the Vercel backend project's **Settings > Environment Variables**, set `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`. Keep the token secret; do not paste it into source files or chat.
+3. Import the repository as a Vercel project and set **Root Directory** to `moraguide-backend`. Set `NODE_ENV=production` and `FRONTEND_ORIGIN=https://mora-guide-ut2w.vercel.app` (add any frontend preview origins you use). The backend initializes its schema on the first request. Verify it at `https://mora-guide-moraguide-backend.vercel.app/api/health`.
+4. In the frontend Vercel project, set **Root Directory** to `moraguide-frontend` and `VITE_API_URL` to the backend HTTPS origin, currently `https://mora-guide-moraguide-backend.vercel.app`. Deploy or redeploy the frontend.
+5. Redeploy after changing environment variables. If you use Vercel preview domains, add each allowed frontend origin to the backend's comma-separated `FRONTEND_ORIGIN` value.
+
+The first successful backend request creates the application tables in Turso. This does not copy data from an existing local `Moraguide.sqlite` file or from `Moraguide.sql`; back up and migrate existing data separately if you need to preserve it. To add the sample places and FAQs to the configured database, run `npm run seed` from the project root while the Turso variables are set.
 
 The backend allows credentialed requests only from the configured frontend origins and uses secure cross-site session cookies in production. Browsers may restrict third-party cookies when the frontend and backend use unrelated domains; custom frontend/API domains under the same site are recommended for reliable login sessions.
 
 ## Accounts and role pages
 
-Students and event organizers can create accounts from **Sign up**. Passwords are stored as bcrypt hashes and login sessions use HTTP-only cookies. Student pages support event registration, saved places, and profile updates. In the Profile section, choose a JPEG, PNG, or WebP image (up to 2 MB), then click **Save profile**; its bytes and content type are stored in SQLite, and the saved photo appears in the dashboard avatar. Organizer pages support event CRUD, attendee lists, and profile updates. Admin accounts are not available through public signup.
+Students and event organizers can create accounts from **Sign up**. Passwords are stored as bcrypt hashes and login sessions use HTTP-only cookies. Student pages support event registration, saved places, and profile updates. In the Profile section, choose a JPEG, PNG, or WebP image (up to 2 MB), then click **Save profile**; its bytes and content type are stored in SQLite locally or Turso in production, and the saved photo appears in the dashboard avatar. Organizer pages support event CRUD, attendee lists, and profile updates. Admin accounts are not available through public signup.
 
 The sample SQL password hashes are placeholders and are not usable for login. Students and organizers should sign up through the app; create admins with the script below.
 
