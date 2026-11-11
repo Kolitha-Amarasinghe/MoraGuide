@@ -9,8 +9,12 @@ const { profileImageDirectory } = require('./config/profileImages');
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
+const defaultFrontendOrigins = process.env.NODE_ENV === 'production'
+    ? ['https://mora-guide-ut2w.vercel.app']
+    : ['http://localhost:5173', 'https://mora-guide-ut2w.vercel.app'];
 const allowedFrontendOrigins = new Set(
-    (process.env.FRONTEND_ORIGIN || '').split(',').map(origin => origin.trim()).filter(Boolean)
+    (process.env.FRONTEND_ORIGIN || defaultFrontendOrigins.join(','))
+        .split(',').map(origin => origin.trim()).filter(Boolean)
 );
 
 app.disable('x-powered-by');
