@@ -1,9 +1,16 @@
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '');
+
+export function getApiUrl(path) {
+  if (/^(https?:|blob:|data:)/i.test(path)) return path;
+  return `${apiBaseUrl}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
 export async function apiRequest(path, options = {}) {
   let response;
   try {
-    response = await fetch(path, {
+    response = await fetch(getApiUrl(path), {
       ...options,
-      credentials: 'same-origin',
+      credentials: apiBaseUrl ? 'include' : 'same-origin',
       headers: {
         ...(options.body ? { 'Content-Type': 'application/json' } : {}),
         ...options.headers

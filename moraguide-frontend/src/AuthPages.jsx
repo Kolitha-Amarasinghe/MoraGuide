@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, CalendarDays, Check, LogOut, MapPin, Save, Star, Trash2, Users } from 'lucide-react';
-import { apiRequest, getLocalDateString } from './api.js';
+import { apiRequest, getApiUrl, getLocalDateString } from './api.js';
 
 export function AuthPage({ mode, onModeChange, onSubmit, busy, error }) {
   const [role, setRole] = useState('student');
@@ -144,7 +144,7 @@ function ProfileEditor({ user, onSaved }) {
       <div className="dashboard-card-heading"><div><span className="eyebrow">YOUR DETAILS</span><h2>Profile</h2></div></div>
       <div className="profile-image-row">
         {previewUrl || user.profileImage
-          ? <img className="profile-image-preview" src={previewUrl || user.profileImage} alt="Profile preview" />
+          ? <img className="profile-image-preview" src={getApiUrl(previewUrl || user.profileImage)} crossOrigin="use-credentials" alt="Profile preview" />
           : <span className="profile-image-preview profile-image-placeholder">{user.firstName.slice(0, 1).toUpperCase()}</span>}
         <div className="profile-image-controls">
           <label>Profile image<input type="file" accept="image/png,image/jpeg,image/webp" onChange={selectImage} /></label>
@@ -455,7 +455,7 @@ export function RoleDashboard({ user, onLogout, onUserChange, onHome }) {
 function DashboardAvatar({ user }) {
   const [imageFailed, setImageFailed] = useState(false);
   if (user.profileImage && !imageFailed) {
-    return <img className="dashboard-avatar" src={user.profileImage} alt={`${user.firstName} ${user.lastName}`} onError={() => setImageFailed(true)} />;
+    return <img className="dashboard-avatar" src={getApiUrl(user.profileImage)} crossOrigin="use-credentials" alt={`${user.firstName} ${user.lastName}`} onError={() => setImageFailed(true)} />;
   }
   return <span className="dashboard-avatar">{user.firstName.slice(0, 1).toUpperCase()}</span>;
 }

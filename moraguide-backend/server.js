@@ -1,5 +1,6 @@
 require('dotenv').config();
 
+const fs = require('node:fs');
 const path = require('node:path');
 const express = require('express');
 const helmet = require('helmet');
@@ -8,11 +9,34 @@ const { profileImageDirectory } = require('./config/profileImages');
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
+const allowedFrontendOrigins = new Set(
+    (process.env.FRONTEND_ORIGIN || '').split(',').map(origin => origin.trim()).filter(Boolean)
+);
 
 app.disable('x-powered-by');
 const frontendDist = path.resolve(__dirname, '..', 'moraguide-frontend', 'dist');
+const frontendEntry = path.join(frontendDist, 'index.html');
+
+app.use((request, response, next) => {
+    const origin = request.get('Origin');
+    if (origin && allowedFrontendOrigins.size > 0) {
+        if (!allowedFrontendOrigins.has(origin)) {
+            return response.status(403).json({ error: 'This origin is not allowed.' });
+        }
+        response.set({
+            'Access-Control-Allow-Origin': origin,
+            'Access-Control-Allow-Credentials': 'true',
+            'Access-Control-Allow-Methods': 'GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type',
+            Vary: 'Origin'
+        });
+    }
+    if (request.method === 'OPTIONS') return response.sendStatus(204);
+    next();
+});
 
 app.use(helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
@@ -45,7 +69,10 @@ app.use('/uploads/profile-images', express.static(profileImageDirectory, {
 }));
 
 app.get('/', (_request, response, next) => {
-    response.sendFile(path.join(frontendDist, 'index.html'), error => {
+    if (!fs.existsSync(frontendEntry)) {
+        return response.json({ service: 'MoraGuide API', health: '/api/health' });
+    }
+    response.sendFile(frontendEntry, error => {
         if (error) next(new Error('React frontend build not found. Run `npm run build` from the project root.', { cause: error }));
     });
 });
@@ -66,7 +93,10 @@ app.use('/api', (_request, response) => {
 });
 
 app.get('/{*path}', (_request, response, next) => {
-    response.sendFile(path.join(frontendDist, 'index.html'), error => {
+    if (!fs.existsSync(frontendEntry)) {
+        return response.status(404).json({ error: 'API endpoint not found.' });
+    }
+    response.sendFile(frontendEntry, error => {
         if (error) next(new Error('React frontend build not found. Run `npm run build` from the project root.', { cause: error }));
     });
 });

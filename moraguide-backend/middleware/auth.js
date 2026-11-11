@@ -16,12 +16,14 @@ function hashToken(token) {
 
 function setSessionCookie(response, token) {
     const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
-    response.setHeader('Set-Cookie', `${SESSION_COOKIE}=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${SESSION_DURATION_MS / 1000}${secure}`);
+    const sameSite = process.env.NODE_ENV === 'production' && process.env.FRONTEND_ORIGIN ? 'None' : 'Lax';
+    response.setHeader('Set-Cookie', `${SESSION_COOKIE}=${token}; HttpOnly; Path=/; SameSite=${sameSite}; Max-Age=${SESSION_DURATION_MS / 1000}${secure}`);
 }
 
 function clearSessionCookie(response) {
     const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
-    response.setHeader('Set-Cookie', `${SESSION_COOKIE}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${secure}`);
+    const sameSite = process.env.NODE_ENV === 'production' && process.env.FRONTEND_ORIGIN ? 'None' : 'Lax';
+    response.setHeader('Set-Cookie', `${SESSION_COOKIE}=; HttpOnly; Path=/; SameSite=${sameSite}; Max-Age=0${secure}`);
 }
 
 async function createSession(userId, response) {
