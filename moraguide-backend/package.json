@@ -1,0 +1,25 @@
+{
+  "name": "moraguide-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Express and SQLite API for MoraGuide",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "seed": "node scripts/seed.js",
+    "create-admin": "node scripts/createAdmin.js",
+    "check": "node --check server.js && node --check config/db.js && node --check config/profileImages.js && node --check scripts/seed.js && node --check scripts/createAdmin.js && node --check middleware/auth.js && node --check routes/authRoutes.js && node --check routes/adminRoutes.js && node --check routes/placeRoutes.js && node --check routes/eventRoutes.js && node --check routes/faqRoutes.js && node --check routes/contactRoutes.js && node --check controllers/authController.js && node --check controllers/favoriteController.js && node --check controllers/placeController.js && node --check controllers/eventController.js && node --check controllers/faqController.js && node --check controllers/contactController.js && node --check controllers/resourceController.js && node --check models/placeModel.js && node --check models/eventModel.js && node --check models/faqModel.js && node --check models/contactModel.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.1.0",
+    "sqlite3": "^6.0.1"
+  }
+}

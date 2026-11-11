@@ -1,0 +1,124 @@
+require('dotenv').config();
+
+const path = require('node:path');
+const express = require('express');
+const helmet = require('helmet');
+const { connectToDatabase, closeDatabase, isDatabaseReady } = require('./config/db');
+const { profileImageDirectory } = require('./config/profileImages');
+
+const app = express();
+const port = Number(process.env.PORT) || 3000;
+
+app.disable('x-powered-by');
+const frontendDist = path.resolve(__dirname, '..', 'moraguide-frontend', 'dist');
+
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+            fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
+            imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+            connectSrc: ["'self'", 'https://*.tile.openstreetmap.org', 'https://routing.openstreetmap.de'],
+            objectSrc: ["'none'"],
+            baseUri: ["'self'"],
+            frameAncestors: ["'none'"]
+        }
+    }
+}));
+app.use(express.json({ limit: '10kb' }));
+app.use('/api', (request, response, next) => {
+    if (['POST', 'PUT', 'PATCH'].includes(request.method) &&
+        !(request.method === 'PUT' && request.path === '/auth/profile/image') &&
+        (!request.body || typeof request.body !== 'object' || Array.isArray(request.body))) {
+        return response.status(400).json({ error: 'Request body must be a JSON object.' });
+    }
+    next();
+});
+
+app.use(express.static(frontendDist, { index: false }));
+app.use('/uploads/profile-images', express.static(profileImageDirectory, {
+    index: false,
+    immutable: true,
+    maxAge: '1y'
+}));
+
+app.get('/', (_request, response, next) => {
+    response.sendFile(path.join(frontendDist, 'index.html'), error => {
+        if (error) next(new Error('React frontend build not found. Run `npm run build` from the project root.', { cause: error }));
+    });
+});
+
+app.get('/api/health', (_request, response) => {
+    response.json({ status: 'ok', database: isDatabaseReady() ? 'connected' : 'disconnected' });
+});
+
+app.use('/api/places', require('./routes/placeRoutes'));
+app.use('/api/events', require('./routes/eventRoutes'));
+app.use('/api/faqs', require('./routes/faqRoutes'));
+app.use('/api/contacts', require('./routes/contactRoutes'));
+app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/admin', require('./routes/adminRoutes'));
+
+app.use('/api', (_request, response) => {
+    response.status(404).json({ error: 'API endpoint not found.' });
+});
+
+app.get('/{*path}', (_request, response, next) => {
+    response.sendFile(path.join(frontendDist, 'index.html'), error => {
+        if (error) next(new Error('React frontend build not found. Run `npm run build` from the project root.', { cause: error }));
+    });
+});
+
+app.use((error, _request, response, _next) => {
+    if (error instanceof SyntaxError && error.status === 400 && 'body' in error) {
+        return response.status(400).json({ error: 'Request body must contain valid JSON.' });
+    }
+    if (error.type === 'entity.too.large') {
+        return response.status(413).json({ error: 'Request body is too large.' });
+    }
+    if (error.name === 'ValidationError' || error.name === 'CastError' || error.name === 'StrictModeError') {
+        const message = error.name === 'ValidationError'
+            ? Object.values(error.errors).map(item => item.message).join(' ')
+            : 'Invalid record ID or field value.';
+        return response.status(400).json({ error: message });
+    }
+
+    console.error('Request failed:', error);
+    response.status(500).json({ error: 'An unexpected server error occurred.' });
+});
+
+let server;
+
+async function start() {
+    await connectToDatabase();
+    server = app.listen(port, () => {
+        console.log(`MoraGuide server listening at http://localhost:${port}`);
+    });
+}
+
+async function shutdown(signal) {
+    console.log(`${signal} received. Shutting down...`);
+    if (server) {
+        await new Promise((resolve, reject) => {
+            server.close(error => error ? reject(error) : resolve());
+        });
+    }
+    await closeDatabase();
+    process.exit(0);
+}
+
+process.on('SIGINT', () => shutdown('SIGINT').catch(error => {
+    console.error('Shutdown failed:', error);
+    process.exit(1);
+}));
+process.on('SIGTERM', () => shutdown('SIGTERM').catch(error => {
+    console.error('Shutdown failed:', error);
+    process.exit(1);
+}));
+
+start().catch(error => {
+    console.error('Server startup failed:', error);
+    process.exitCode = 1;
+});

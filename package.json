@@ -1,0 +1,16 @@
+{
+  "name": "moraguide",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MoraGuide React frontend and Express/SQLite backend",
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c blue,green \"npm --prefix moraguide-backend run dev\" \"npm --prefix moraguide-frontend run dev\"",
+    "build": "npm --prefix moraguide-frontend run build",
+    "start": "npm --prefix moraguide-backend start",
+    "seed": "npm --prefix moraguide-backend run seed",
+    "check": "npm --prefix moraguide-backend run check && npm --prefix moraguide-frontend run check"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

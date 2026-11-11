@@ -1,0 +1,6 @@
+node_modules/
+**/node_modules/
+**/dist/
+**/.env
+moraguide-backend/uploads/profile-images/
+npm-debug.log*

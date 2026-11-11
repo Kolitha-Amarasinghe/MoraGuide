@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoraGuide - University of Moratuwa Campus Guide</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts (Plus Jakarta Sans & Inter for the MoraGuide theme) -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+            background-color: #F8F6F0; /* Soft warm background like budget calculator */
+            color: #1E293B;
+        }
+
+        /* MoraGuide palette */
+        .bg-uninear-dark { background-color: #090E1A; } /* Dark Header / Hero */
+        .bg-uninear-cream { background-color: #F5F1E8; } /* Off-white card container */
+        .bg-uninear-card { background-color: #FFFFFF; }
+        .bg-uninear-purple { background-color: #5E5CE6; }
+        .bg-uninear-purple-light { background-color: #EEECFE; }
+        .text-uninear-purple { color: #5E5CE6; }
+        .border-uninear-purple { border-color: #5E5CE6; }
+
+        /* Step circle styling */
+        .step-circle-active {
+            background-color: #5E5CE6;
+            color: white;
+            font-weight: 700;
+        }
+        .step-circle-inactive {
+            background-color: #E2E8F0;
+            color: #64748B;
+        }
+
+        /* Custom Leaflet Styling */
+        #map {
+            width: 100%;
+            height: 100%;
+            min-height: 480px;
+            border-radius: 16px;
+            z-index: 10;
+        }
+
+        /* Clean Light Leaflet Popup */
+        .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+            background-color: #FFFFFF !important;
+            color: #0F172A !important;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
+        }
+
+        .custom-marker {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s ease;
+        }
+        .custom-marker:hover {
+            transform: scale(1.15);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #F1F5F9;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #CBD5E1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #5E5CE6;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- 1. MoraGuide Top Navigation Bar -->
+    <header class="bg-white border-b border-slate-200/80 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- MoraGuide Logo -->
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-extrabold text-sm tracking-tighter">
+                        M
+                    </div>
+                    <span class="font-black text-xl tracking-wider text-slate-900">MoraGuide</span>
+                </div>
+
+                <nav aria-label="Main navigation" class="hidden lg:flex items-center gap-0.5 bg-slate-100 p-1.5 rounded-full text-xs font-semibold">
+                    <a href="#home" class="px-4 py-1.5 rounded-full text-slate-600 hover:text-slate-900 transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-house-chimney text-xs"></i> Home
+                    </a>
+                    <a href="#campus-map" class="px-4 py-1.5 rounded-full bg-white text-slate-900 font-bold shadow-sm border border-slate-200/60 flex items-center gap-1.5">
+                        <i class="fa-solid fa-map-location-dot text-uninear-purple text-xs"></i> Explore
+                    </a>
+                    <a href="#directory" class="px-3 py-1.5 rounded-full text-slate-600 hover:text-slate-900 transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-list text-xs"></i> Directory
+                    </a>
+                    <a href="#essentials" class="px-3 py-1.5 rounded-full text-slate-600 hover:text-slate-900 transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-compass text-xs"></i> Essentials
+                    </a>
+                    <a href="#events" class="px-3 py-1.5 rounded-full text-slate-600 hover:text-slate-900 transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-calendar-days text-xs"></i> Events
+                    </a>
+                    <a href="#about" class="px-3 py-1.5 rounded-full text-slate-600 hover:text-slate-900 transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-circle-info text-xs"></i> About
+                    </a>
+                </nav>
+
+                <div class="flex items-center">
+                    <a href="#directory" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-4 py-2.5 rounded-full transition shadow-md">
+                        Find a place
+                    </a>
+                </div>
+            </div>
+            <nav aria-label="Mobile navigation" class="lg:hidden -mx-4 px-4 pb-3 flex items-center gap-2 overflow-x-auto text-xs font-semibold">
+                <a href="#home" class="shrink-0 px-3 py-2 rounded-full bg-slate-100 text-slate-700">Home</a>
+                <a href="#campus-map" class="shrink-0 px-3 py-2 rounded-full bg-slate-100 text-slate-700">Explore</a>
+                <a href="#directory" class="shrink-0 px-3 py-2 rounded-full bg-slate-100 text-slate-700">Directory</a>
+                <a href="#essentials" class="shrink-0 px-3 py-2 rounded-full bg-slate-100 text-slate-700">Essentials</a>
+                <a href="#events" class="shrink-0 px-3 py-2 rounded-full bg-slate-100 text-slate-700">Events</a>
+                <a href="#about" class="shrink-0 px-3 py-2 rounded-full bg-slate-100 text-slate-700">About</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- 2. Dark Hero Section (Matching Screenshot Dark Banner) -->
+    <section id="home" class="bg-uninear-dark text-white py-10 px-4 sm:px-6 lg:px-8 border-b border-slate-800 relative overflow-hidden">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
+            <div class="space-y-3 max-w-2xl">
+                <h1 class="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight">
+                    Find your way <br class="hidden sm:block"/>around campus.
+                </h1>
+                <p class="text-slate-400 text-sm sm:text-base font-medium">
+                    Search essential places at the University of Moratuwa, explore the campus map, and open walking directions.
+                </p>
+
+                <!-- Pill Badges (Matching Screenshot Top Pills) -->
+                <div class="flex flex-wrap items-center gap-2 pt-2">
+                    <span class="inline-flex items-center gap-1.5 bg-slate-800/90 text-slate-200 px-3 py-1 rounded-full text-xs font-medium border border-slate-700/60">
+                        <i class="fa-regular fa-clock text-slate-400"></i> Takes 2 minutes
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 bg-slate-800/90 text-slate-200 px-3 py-1 rounded-full text-xs font-medium border border-slate-700/60">
+                        <i class="fa-solid fa-graduation-cap text-slate-400"></i> Made for students
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 bg-slate-800/90 text-slate-200 px-3 py-1 rounded-full text-xs font-medium border border-slate-700/60">
+                        <i class="fa-solid fa-map text-emerald-400"></i> 100% Free Maps
+                    </span>
+                </div>
+            </div>
+
+            <!-- 3D Room / Compass Illustration Card -->
+            <div class="w-full md:w-80 h-36 bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-slate-700/80 p-4 flex items-center justify-between shadow-2xl relative">
+                <div class="space-y-1">
+                    <span class="text-xs uppercase font-bold text-uninear-purple tracking-wider">Campus Target</span>
+                    <h3 class="font-bold text-base text-white">University of Moratuwa</h3>
+                    <p class="text-xs text-slate-400">Katubedda Main Gate</p>
+                </div>
+                <div class="w-14 h-14 rounded-2xl bg-uninear-purple text-white flex items-center justify-center text-2xl shadow-lg shadow-purple-500/30">
+                    <i class="fa-solid fa-location-crosshairs"></i>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 3. Main campus map and directory -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+        
+        <div class="bg-uninear-cream p-5 sm:p-7 rounded-3xl border border-slate-200/90 shadow-sm space-y-6">
+            
+            <!-- Simple campus navigation workflow -->
+            <div class="flex items-center justify-center sm:justify-start gap-4 sm:gap-8 border-b border-slate-300/60 pb-5 overflow-x-auto text-xs font-bold">
+                <div class="flex items-center gap-2 whitespace-nowrap">
+                    <span class="w-6 h-6 rounded-full step-circle-active flex items-center justify-center text-xs">1</span>
+                    <span class="text-slate-900">Find a place</span>
+                </div>
+                <div class="w-8 h-0.5 bg-slate-300"></div>
+                <div class="flex items-center gap-2 whitespace-nowrap">
+                    <span class="w-6 h-6 rounded-full step-circle-active flex items-center justify-center text-xs">2</span>
+                    <span class="text-slate-900">Explore map</span>
+                </div>
+                <div class="w-8 h-0.5 bg-slate-300"></div>
+                <div class="flex items-center gap-2 whitespace-nowrap">
+                    <span class="w-6 h-6 rounded-full step-circle-inactive flex items-center justify-center text-xs">3</span>
+                    <span class="text-slate-500">Get directions</span>
+                </div>
+            </div>
+
+            <!-- Header & Dropdown Bar -->
+            <div id="directory" class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 scroll-mt-28">
+                <div>
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">CAMPUS DIRECTORY</span>
+                    <h2 class="text-2xl font-black text-slate-900 tracking-tight">What are you looking for?</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Search a campus landmark or choose a category to get started.</p>
+                </div>
+
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-white p-2 rounded-2xl border border-slate-200 shadow-sm">
+                    <label for="place-search" class="sr-only">Search campus places</label>
+                    <input id="place-search" type="search" placeholder="Search campus places..." oninput="filterPlaces()" class="min-w-0 bg-slate-50 text-slate-900 text-sm rounded-xl px-3 py-2.5 outline-none border border-slate-200 focus:ring-2 focus:ring-purple-500">
+                    <label for="category-select" class="sr-only">Filter by category</label>
+                    <select id="category-select" onchange="filterPlaces()" class="bg-slate-50 text-slate-900 text-xs font-bold rounded-xl p-2.5 outline-none border border-slate-200 focus:ring-2 focus:ring-purple-500">
+                        <option value="all">All places</option>
+                    </select>
+                    <label for="place-select" class="sr-only">Choose a place</label>
+                    <select id="place-select" onchange="selectPlace(this.value)" class="bg-slate-50 text-slate-900 text-xs font-bold rounded-xl p-2.5 outline-none border border-slate-200 focus:ring-2 focus:ring-purple-500"></select>
+                </div>
+            </div>
+
+            <!-- Content Grid: Map + Right Details Box -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                <!-- Map Container (7 Cols) -->
+                <div id="campus-map" class="lg:col-span-7 bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex flex-col relative min-h-[460px] scroll-mt-28">
+                    
+                    <!-- Engine Toggle -->
+                    <div class="mb-3 flex items-center justify-between bg-slate-50 p-2 rounded-xl border border-slate-200 text-xs">
+                        <span class="text-slate-500 font-medium text-[11px]"><i class="fa-solid fa-circle-info text-emerald-500 mr-1"></i> Sample campus locations · route line is illustrative</span>
+                        <div class="flex gap-1">
+                            <span class="px-3 py-1 rounded-lg text-xs font-bold bg-uninear-purple text-white shadow">
+                                Campus map
+                            </span>
+                            <button id="btn-gmap-mode" onclick="openGoogleMap()" class="px-3 py-1 rounded-lg text-xs font-semibold transition text-slate-600 hover:bg-slate-200">
+                                Open Google Maps
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Leaflet Map Canvas -->
+                    <div id="map" class="w-full flex-grow rounded-xl overflow-hidden"></div>
+
+                    <!-- Map Legend -->
+                    <div id="map-legend" class="absolute bottom-6 left-6 z-[400] bg-white/95 backdrop-blur-md px-3 py-2 rounded-xl border border-slate-200 text-xs flex items-center gap-3 text-slate-700 shadow-md font-semibold">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-3 h-3 rounded-full bg-slate-900 inline-block"></span>
+                            <span>Main Gate</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-3 h-3 rounded-full bg-uninear-purple inline-block"></span>
+                            <span>Campus place</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Selected place details and campus directory -->
+                <div class="lg:col-span-5 flex flex-col gap-4">
+                    
+                    <!-- Stats Card -->
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                        
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                            <div>
+                                <span class="text-[11px] font-bold text-uninear-purple uppercase tracking-wider">Selected Place</span>
+                                <h3 id="panel-title" class="text-xl font-extrabold text-slate-900">Main Gate</h3>
+                            </div>
+                            <span id="panel-badge" class="bg-purple-100 text-uninear-purple text-xs font-bold px-3 py-1 rounded-full">
+                                Popular
+                            </span>
+                        </div>
+
+                        <!-- Distance & Time Banner (Matches Soft Lavender Highlight Box from Screenshot) -->
+                        <div class="bg-uninear-purple-light p-4 rounded-xl border border-purple-200/60 space-y-2">
+                            <div class="flex justify-between items-center text-xs font-semibold text-slate-600">
+                                <span id="distance-origin-label">Approx. distance from Main Gate</span>
+                                <span id="panel-distance" class="text-slate-900 font-extrabold text-sm">0.5 km</span>
+                            </div>
+                            <div class="flex justify-between items-center text-xs font-semibold text-slate-600">
+                                <span>Estimated walk time</span>
+                                <span id="panel-time" class="text-uninear-purple font-extrabold text-sm">~6 mins</span>
+                            </div>
+                        </div>
+
+                        <!-- Map Quick Buttons -->
+                        <div class="flex items-center justify-between text-xs font-semibold text-slate-500 pt-1">
+                            <span>Map Controls:</span>
+                            <div class="flex gap-1.5">
+                                <button onclick="zoomInMap()" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg transition">+ Zoom</button>
+                                <button onclick="zoomOutMap()" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg transition">- Zoom</button>
+                                <button onclick="recenterMap()" class="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-uninear-purple font-bold rounded-lg transition">Recenter</button>
+                            </div>
+                        </div>
+
+                        <!-- Route Instructions -->
+                        <div class="space-y-2 pt-2 border-t border-slate-100">
+                            <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center justify-between">
+                                <span>About this place</span>
+                                <i class="fa-solid fa-shoe-prints text-uninear-purple"></i>
+                            </h4>
+                            <div id="instructions-list" class="max-h-44 overflow-y-auto space-y-2 pr-1 text-xs">
+                                <!-- Dynamic List -->
+                            </div>
+                        </div>
+
+                        <p class="text-[11px] text-slate-500">Locations and straight-line estimates are illustrative. Follow on-map walking directions for a route.</p>
+
+                        <!-- Map actions -->
+                        <div class="space-y-2 pt-2">
+                            <!-- Free Google Maps Link -->
+                            <a id="btn-google-directions" href="#" target="_blank" rel="noopener noreferrer" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-4 rounded-xl transition flex items-center justify-center gap-2 text-xs shadow-md">
+                                <i class="fa-solid fa-location-arrow text-emerald-400"></i>
+                                <span>Get walking directions</span>
+                            </a>
+
+                            <button onclick="findMyLocation()" class="w-full bg-uninear-purple hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-xl transition flex items-center justify-center gap-2 text-xs shadow-md">
+                                <i class="fa-solid fa-location-crosshairs"></i>
+                                <span>Show my location</span>
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+    <section id="essentials" class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 scroll-mt-28">
+        <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-5">
+            <div>
+                <span class="text-xs font-bold text-uninear-purple uppercase tracking-widest">Start here</span>
+                <h2 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Student essentials</h2>
+                <p class="text-sm text-slate-600 mt-1">Quick links to useful places around campus.</p>
+            </div>
+            <a href="#directory" class="text-sm font-bold text-uninear-purple hover:text-purple-800">Browse the full directory <i class="fa-solid fa-arrow-right ml-1"></i></a>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <article class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <div class="w-10 h-10 rounded-xl bg-purple-100 text-uninear-purple flex items-center justify-center mb-3"><i class="fa-solid fa-book-open"></i></div>
+                <h3 class="font-extrabold text-slate-900">Study spaces</h3>
+                <p class="text-sm text-slate-600 mt-1 mb-4">Find the University Library and other study-related places.</p>
+                <button onclick="selectPlace('library'); document.getElementById('campus-map').scrollIntoView({ behavior: 'smooth' });" class="text-xs font-bold text-uninear-purple hover:text-purple-800">Show library on map <i class="fa-solid fa-arrow-right ml-1"></i></button>
+            </article>
+            <article class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center mb-3"><i class="fa-solid fa-utensils"></i></div>
+                <h3 class="font-extrabold text-slate-900">Food on campus</h3>
+                <p class="text-sm text-slate-600 mt-1 mb-4">Locate the Main Canteen. Check locally for current menus and hours.</p>
+                <button onclick="selectPlace('main-canteen'); document.getElementById('campus-map').scrollIntoView({ behavior: 'smooth' });" class="text-xs font-bold text-uninear-purple hover:text-purple-800">Show canteen on map <i class="fa-solid fa-arrow-right ml-1"></i></button>
+            </article>
+            <article class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <div class="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center mb-3"><i class="fa-solid fa-kit-medical"></i></div>
+                <h3 class="font-extrabold text-slate-900">Health services</h3>
+                <p class="text-sm text-slate-600 mt-1 mb-4">Find the Medical Centre and confirm current service details with the university.</p>
+                <button onclick="selectPlace('medical-centre'); document.getElementById('campus-map').scrollIntoView({ behavior: 'smooth' });" class="text-xs font-bold text-uninear-purple hover:text-purple-800">Show medical centre <i class="fa-solid fa-arrow-right ml-1"></i></button>
+            </article>
+            <article class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center mb-3"><i class="fa-solid fa-bus"></i></div>
+                <h3 class="font-extrabold text-slate-900">Getting around</h3>
+                <p class="text-sm text-slate-600 mt-1 mb-4">Locate the University Bus Stop and verify routes and timings locally.</p>
+                <button onclick="selectPlace('bus-stop'); document.getElementById('campus-map').scrollIntoView({ behavior: 'smooth' });" class="text-xs font-bold text-uninear-purple hover:text-purple-800">Show bus stop <i class="fa-solid fa-arrow-right ml-1"></i></button>
+            </article>
+        </div>
+    </section>
+
+    <section id="events" class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 scroll-mt-28">
+        <div class="mb-5">
+            <span class="text-xs font-bold text-uninear-purple uppercase tracking-widest">Campus calendar</span>
+            <h2 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Upcoming events</h2>
+            <p class="text-sm text-slate-600 mt-1">Add an event with its date, time, venue, and details. Events are shared through the MoraGuide server.</p>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-5">
+            <form id="event-form" class="lg:col-span-2 bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                <h3 class="font-extrabold text-slate-900">Add an event</h3>
+                <div>
+                    <label for="event-title" class="block text-xs font-bold text-slate-700 mb-1.5">Event name</label>
+                    <input id="event-title" name="title" type="text" maxlength="100" required placeholder="e.g. Student club meetup" class="w-full bg-slate-50 text-sm rounded-xl px-3 py-2.5 outline-none border border-slate-200 focus:ring-2 focus:ring-purple-500">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label for="event-date" class="block text-xs font-bold text-slate-700 mb-1.5">Date</label>
+                        <input id="event-date" name="date" type="date" required class="w-full min-w-0 bg-slate-50 text-sm rounded-xl px-3 py-2.5 outline-none border border-slate-200 focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    <div>
+                        <label for="event-time" class="block text-xs font-bold text-slate-700 mb-1.5">Time</label>
+                        <input id="event-time" name="time" type="time" required class="w-full min-w-0 bg-slate-50 text-sm rounded-xl px-3 py-2.5 outline-none border border-slate-200 focus:ring-2 focus:ring-purple-500">
+                    </div>
+                </div>
+                <div>
+                    <label for="event-venue" class="block text-xs font-bold text-slate-700 mb-1.5">Venue</label>
+                    <input id="event-venue" name="venue" type="text" maxlength="120" required placeholder="Building, room, or campus location" class="w-full bg-slate-50 text-sm rounded-xl px-3 py-2.5 outline-none border border-slate-200 focus:ring-2 focus:ring-purple-500">
+                </div>
+                <div>
+                    <label for="event-description" class="block text-xs font-bold text-slate-700 mb-1.5">Details <span class="font-medium text-slate-400">(optional)</span></label>
+                    <textarea id="event-description" name="description" rows="3" maxlength="500" placeholder="Share a short description or anything attendees should know." class="w-full resize-y bg-slate-50 text-sm rounded-xl px-3 py-2.5 outline-none border border-slate-200 focus:ring-2 focus:ring-purple-500"></textarea>
+                </div>
+                <button type="submit" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-4 rounded-xl transition flex items-center justify-center gap-2 text-sm shadow-md">
+                    <i class="fa-solid fa-plus text-emerald-400"></i> Add event
+                </button>
+            </form>
+            <div class="lg:col-span-3">
+                <div id="events-list" class="space-y-3" aria-live="polite"></div>
+            </div>
+        </div>
+    </section>
+
+    <section id="about" class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 scroll-mt-28">
+        <div class="bg-slate-900 text-white rounded-3xl p-6 sm:p-9 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div class="max-w-2xl">
+                <span class="text-xs font-bold text-purple-300 uppercase tracking-widest">About MoraGuide</span>
+                <h2 class="text-2xl sm:text-3xl font-black mt-2">A simpler way to explore campus.</h2>
+                <p class="text-sm text-slate-300 mt-3 leading-relaxed">Search the campus directory, select a place to see it on the map, and open walking directions. This guide is an independent starting point—not an official university service.</p>
+                <p class="text-xs text-slate-400 mt-3 leading-relaxed">Map locations and distance estimates are illustrative. Confirm building locations, access, service hours, and emergency information with the University of Moratuwa.</p>
+            </div>
+            <a href="#campus-map" class="shrink-0 inline-flex items-center justify-center gap-2 bg-white text-slate-900 font-bold text-sm px-5 py-3 rounded-xl hover:bg-slate-100 transition">
+                Explore the map <i class="fa-solid fa-arrow-right text-uninear-purple"></i>
+            </a>
+        </div>
+    </section>
+
+    <!-- 4. MoraGuide Footer -->
+    <footer class="bg-uninear-purple-light border-t border-purple-200/60 mt-8 py-10 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
+            <div class="space-y-3 max-w-sm">
+                <div class="flex items-center gap-2">
+                    <div class="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center font-black text-xs">
+                        M
+                    </div>
+                    <span class="font-black text-lg tracking-wider text-slate-900">MoraGuide</span>
+                </div>
+                <p class="text-xs text-slate-600 leading-relaxed font-medium">
+                    Find essential University of Moratuwa places, explore the map, and open walking directions with MoraGuide.
+                </p>
+                <div class="flex gap-3 text-slate-700 pt-1 text-sm">
+                    <a href="#" class="w-8 h-8 rounded-full bg-white flex items-center justify-center hover:bg-uninear-purple hover:text-white transition shadow-sm"><i class="fa-brands fa-tiktok"></i></a>
+                    <a href="#" class="w-8 h-8 rounded-full bg-white flex items-center justify-center hover:bg-uninear-purple hover:text-white transition shadow-sm"><i class="fa-brands fa-instagram"></i></a>
+                    <a href="#" class="w-8 h-8 rounded-full bg-white flex items-center justify-center hover:bg-uninear-purple hover:text-white transition shadow-sm"><i class="fa-brands fa-facebook-f"></i></a>
+                    <a href="#" class="w-8 h-8 rounded-full bg-white flex items-center justify-center hover:bg-uninear-purple hover:text-white transition shadow-sm"><i class="fa-brands fa-linkedin-in"></i></a>
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <h3 class="text-2xl sm:text-3xl font-black text-slate-900 leading-tight">
+                    Making student life <br />easier, one discovery <br />at a time.
+                </h3>
+            </div>
+        </div>
+        <div class="max-w-7xl mx-auto pt-8 border-t border-purple-200/60 mt-8 text-xs text-slate-500 font-semibold flex justify-between items-center">
+            <p>© MoraGuide 2026 • University of Moratuwa Campus Guide</p>
+            <p class="text-emerald-600 font-bold">Map data © OpenStreetMap contributors</p>
+        </div>
+    </footer>
+
+    <!-- Toast Notification -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-[1000] flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <script>
+        const CAMPUS_GATE = { name: 'University of Moratuwa Main Gate', lat: 6.7951, lng: 79.9009 };
+        const CAMPUS_PLACES = [
+            { id: 'main-gate', name: 'Main Gate', category: 'Gates', lat: 6.7951, lng: 79.9009, description: 'Main entrance to the University of Moratuwa campus.', icon: 'fa-door-open' },
+            { id: 'library', name: 'University Library', category: 'Study', lat: 6.7971, lng: 79.9015, description: 'Campus library and study spaces. Check campus notices for opening hours.', icon: 'fa-book-open' },
+            { id: 'student-centre', name: 'Student Centre', category: 'Student services', lat: 6.7965, lng: 79.9030, description: 'Student services and common campus facilities.', icon: 'fa-users' },
+            { id: 'main-canteen', name: 'Main Canteen', category: 'Food', lat: 6.7944, lng: 79.9027, description: 'Campus dining. Check locally for current service hours.', icon: 'fa-utensils' },
+            { id: 'medical-centre', name: 'Medical Centre', category: 'Student services', lat: 6.7929, lng: 79.9017, description: 'Campus medical services. Contact the university for current hours and emergency information.', icon: 'fa-kit-medical' },
+            { id: 'auditorium', name: 'Main Auditorium', category: 'Campus buildings', lat: 6.7968, lng: 79.8998, description: 'Auditorium and event venue on campus.', icon: 'fa-building' },
+            { id: 'engineering-faculty', name: 'Engineering Faculty', category: 'Faculties', lat: 6.7977, lng: 79.9031, description: 'Engineering faculty area. Check your timetable for the specific department or building.', icon: 'fa-gears' },
+            { id: 'architecture-faculty', name: 'Architecture Faculty', category: 'Faculties', lat: 6.7948, lng: 79.8985, description: 'Architecture faculty area. Confirm your destination building with your department.', icon: 'fa-compass-drafting' },
+            { id: 'it-faculty', name: 'Information Technology Faculty', category: 'Faculties', lat: 6.7983, lng: 79.8997, description: 'Information Technology faculty area. Confirm your destination building with your department.', icon: 'fa-laptop-code' },
+            { id: 'sports-ground', name: 'Sports Ground', category: 'Sports', lat: 6.7928, lng: 79.8994, description: 'Campus sports and recreation area.', icon: 'fa-futbol' },
+            { id: 'bus-stop', name: 'University Bus Stop', category: 'Transport', lat: 6.7942, lng: 79.8977, description: 'University bus stop area. Check current routes and timetables locally.', icon: 'fa-bus' },
+            { id: 'hostel', name: 'Student Hostels', category: 'Student services', lat: 6.7918, lng: 79.9026, description: 'Student hostel area. Access may be restricted to residents and visitors.', icon: 'fa-bed' }
+        ];
+
+        let map;
+        let activePolyline = null;
+        let selectedPlace = CAMPUS_PLACES.find(place => place.id === 'library');
+        let placeMarkers = [];
+        let userMarker = null;
+        let currentOrigin = CAMPUS_GATE;
+        let campusEvents = [];
+        let eventsLoadFailed = false;
+
+        window.addEventListener('load', () => {
+            populateCategories();
+            initMap();
+            filterPlaces();
+            updatePanelUI(selectedPlace);
+            initializeEventBoard();
+        });
+
+        function getLocalDateString(date = new Date()) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        async function initializeEventBoard() {
+            const dateInput = document.getElementById('event-date');
+            dateInput.min = getLocalDateString();
+            document.getElementById('event-form').addEventListener('submit', addCampusEvent);
+            document.getElementById('events-list').addEventListener('click', removeCampusEvent);
+            await loadCampusEvents();
+        }
+
+        async function requestApi(url, options = {}) {
+            const response = await fetch(url, {
+                ...options,
+                headers: {
+                    ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+                    ...options.headers
+                }
+            });
+            if (response.status === 204) return null;
+
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'The request could not be completed.');
+            return result.data;
+        }
+
+        async function loadCampusEvents() {
+            try {
+                campusEvents = await requestApi('/api/events');
+                eventsLoadFailed = false;
+                renderCampusEvents();
+            } catch (error) {
+                eventsLoadFailed = true;
+                console.error('Could not load campus events:', error);
+                renderCampusEvents();
+                showNotification('Could not load events. Start the MoraGuide server and try again.');
+            }
+        }
+
+        async function addCampusEvent(event) {
+            event.preventDefault();
+            const form = event.currentTarget;
+            const formData = new FormData(form);
+            const newEvent = {
+                title: String(formData.get('title') || '').trim(),
+                date: formData.get('date'),
+                time: formData.get('time'),
+                venue: String(formData.get('venue') || '').trim(),
+                description: String(formData.get('description') || '').trim()
+            };
+
+            if (newEvent.date < getLocalDateString()) {
+                showNotification('Choose today or a future date for the event.');
+                return;
+            }
+
+            const submitButton = form.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+            try {
+                const createdEvent = await requestApi('/api/events', {
+                    method: 'POST',
+                    body: JSON.stringify(newEvent)
+                });
+                campusEvents.push(createdEvent);
+                form.reset();
+                document.getElementById('event-date').min = getLocalDateString();
+                renderCampusEvents();
+                showNotification('Event added to upcoming events.');
+            } catch (error) {
+                console.error('Could not add campus event:', error);
+                showNotification(error.message || 'Could not add the event. Please try again.');
+            } finally {
+                submitButton.disabled = false;
+            }
+        }
+
+        async function removeCampusEvent(event) {
+            const button = event.target.closest('[data-remove-event]');
+            if (!button) return;
+            button.disabled = true;
+            try {
+                await requestApi(`/api/events/${encodeURIComponent(button.dataset.removeEvent)}`, {
+                    method: 'DELETE'
+                });
+                campusEvents = campusEvents.filter(item => item.id !== button.dataset.removeEvent);
+                renderCampusEvents();
+                showNotification('Event removed.');
+            } catch (error) {
+                console.error('Could not remove campus event:', error);
+                showNotification(error.message || 'Could not remove the event. Please try again.');
+                button.disabled = false;
+            }
+        }
+
+        function renderCampusEvents() {
+            const list = document.getElementById('events-list');
+            list.replaceChildren();
+            if (eventsLoadFailed) {
+                const errorState = document.createElement('div');
+                errorState.className = 'bg-white p-6 sm:p-8 rounded-2xl border border-rose-200 text-center';
+                const title = document.createElement('h3');
+                title.className = 'font-extrabold text-slate-800';
+                title.textContent = 'Events are unavailable right now';
+                const message = document.createElement('p');
+                message.className = 'text-sm text-slate-500 mt-1';
+                message.textContent = 'Start the backend server and refresh this page to load shared events.';
+                errorState.append(title, message);
+                list.appendChild(errorState);
+                return;
+            }
+            const upcomingEvents = campusEvents
+                .filter(event => event.date >= getLocalDateString())
+                .sort((first, second) => `${first.date}T${first.time}`.localeCompare(`${second.date}T${second.time}`));
+
+            if (upcomingEvents.length === 0) {
+                const emptyState = document.createElement('div');
+                emptyState.className = 'bg-white p-6 sm:p-8 rounded-2xl border border-dashed border-slate-300 text-center';
+                const icon = document.createElement('i');
+                icon.className = 'fa-regular fa-calendar text-2xl text-slate-400';
+                const title = document.createElement('h3');
+                title.className = 'font-extrabold text-slate-800 mt-3';
+                title.textContent = 'No upcoming events yet';
+                const message = document.createElement('p');
+                message.className = 'text-sm text-slate-500 mt-1';
+                message.textContent = 'Add a campus event using the form to get started.';
+                emptyState.append(icon, title, message);
+                list.appendChild(emptyState);
+                return;
+            }
+
+            upcomingEvents.forEach(campusEvent => {
+                const card = document.createElement('article');
+                card.className = 'bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex gap-4';
+
+                const dateBadge = document.createElement('div');
+                dateBadge.className = 'shrink-0 w-14 h-16 rounded-xl bg-purple-50 text-uninear-purple flex flex-col items-center justify-center';
+                const date = new Date(`${campusEvent.date}T00:00:00`);
+                const month = document.createElement('span');
+                month.className = 'text-[10px] font-extrabold uppercase tracking-wider';
+                month.textContent = date.toLocaleDateString(undefined, { month: 'short' });
+                const day = document.createElement('span');
+                day.className = 'text-xl font-black leading-tight';
+                day.textContent = date.toLocaleDateString(undefined, { day: 'numeric' });
+                dateBadge.append(month, day);
+
+                const content = document.createElement('div');
+                content.className = 'min-w-0 flex-grow';
+                const title = document.createElement('h3');
+                title.className = 'font-extrabold text-slate-900 break-words';
+                title.textContent = campusEvent.title;
+                const details = document.createElement('p');
+                details.className = 'text-xs text-slate-600 mt-1';
+                const time = new Date(`1970-01-01T${campusEvent.time}`);
+                details.textContent = `${date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })} · ${time.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+                const venue = document.createElement('p');
+                venue.className = 'text-xs font-bold text-slate-700 mt-2';
+                venue.innerHTML = '<i class="fa-solid fa-location-dot text-uninear-purple mr-1"></i>';
+                venue.append(document.createTextNode(campusEvent.venue));
+                content.append(title, details, venue);
+                if (campusEvent.description) {
+                    const description = document.createElement('p');
+                    description.className = 'text-sm text-slate-600 mt-2 whitespace-pre-wrap break-words';
+                    description.textContent = campusEvent.description;
+                    content.appendChild(description);
+                }
+
+                const removeButton = document.createElement('button');
+                removeButton.type = 'button';
+                removeButton.dataset.removeEvent = campusEvent.id;
+                removeButton.className = 'shrink-0 self-start text-slate-400 hover:text-rose-600 p-2 rounded-lg hover:bg-rose-50 transition';
+                removeButton.setAttribute('aria-label', `Remove ${campusEvent.title}`);
+                removeButton.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
+                card.append(dateBadge, content, removeButton);
+                list.appendChild(card);
+            });
+        }
+
+        function initMap() {
+            map = L.map('map', { zoomControl: false }).setView([CAMPUS_GATE.lat, CAMPUS_GATE.lng], 16);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap &copy; CARTO'
+            }).addTo(map);
+
+            const gateIcon = L.divIcon({
+                className: 'custom-marker bg-slate-900 border-2 border-white',
+                html: '<i class="fa-solid fa-graduation-cap text-xs"></i>',
+                iconSize: [34, 34],
+                iconAnchor: [17, 17]
+            });
+            L.marker([CAMPUS_GATE.lat, CAMPUS_GATE.lng], { icon: gateIcon })
+                .addTo(map)
+                .bindPopup(CAMPUS_GATE.name);
+            renderPlaceMarkers();
+            drawRouteLine(selectedPlace);
+        }
+
+        function getVisiblePlaces() {
+            const query = document.getElementById('place-search').value.trim().toLowerCase();
+            const category = document.getElementById('category-select').value;
+            return CAMPUS_PLACES.filter(place =>
+                (category === 'all' || place.category === category) &&
+                (!query || `${place.name} ${place.category} ${place.description}`.toLowerCase().includes(query))
+            );
+        }
+
+        function populateCategories() {
+            const select = document.getElementById('category-select');
+            [...new Set(CAMPUS_PLACES.map(place => place.category))].sort().forEach(category => {
+                const option = document.createElement('option');
+                option.value = category;
+                option.textContent = category;
+                select.appendChild(option);
+            });
+        }
+
+        function filterPlaces() {
+            const places = getVisiblePlaces();
+            const select = document.getElementById('place-select');
+            select.replaceChildren();
+            places.forEach(place => {
+                const option = document.createElement('option');
+                option.value = place.id;
+                option.textContent = place.name;
+                select.appendChild(option);
+            });
+            select.disabled = places.length === 0;
+            if (places.length) {
+                const selectedIsVisible = places.some(place => place.id === selectedPlace.id);
+                if (!selectedIsVisible || !activePolyline) selectPlace(places[0].id);
+                else select.value = selectedPlace.id;
+                document.getElementById('btn-google-directions').classList.remove('pointer-events-none', 'opacity-50');
+                document.getElementById('btn-google-directions').removeAttribute('aria-disabled');
+                document.getElementById('btn-gmap-mode').disabled = false;
+            } else {
+                document.getElementById('panel-title').textContent = 'No places found';
+                document.getElementById('panel-badge').textContent = 'Try another search';
+                document.getElementById('instructions-list').replaceChildren();
+                document.getElementById('panel-distance').textContent = '—';
+                document.getElementById('panel-time').textContent = '—';
+                document.getElementById('btn-google-directions').classList.add('pointer-events-none', 'opacity-50');
+                document.getElementById('btn-google-directions').setAttribute('aria-disabled', 'true');
+                document.getElementById('btn-gmap-mode').disabled = true;
+                if (activePolyline) map.removeLayer(activePolyline);
+                activePolyline = null;
+            }
+            renderPlaceMarkers(places);
+        }
+
+        function renderPlaceMarkers(places = getVisiblePlaces()) {
+            if (!map) return;
+            placeMarkers.forEach(marker => map.removeLayer(marker));
+            placeMarkers = places.map(place => {
+                const isSelected = place.id === selectedPlace.id;
+                const icon = L.divIcon({
+                    className: isSelected
+                        ? 'custom-marker bg-uninear-purple text-white border-2 border-white ring-4 ring-purple-200'
+                        : 'custom-marker bg-slate-500 text-white border border-white',
+                    html: `<i class="fa-solid ${place.icon} text-xs"></i>`,
+                    iconSize: isSelected ? [34, 34] : [28, 28],
+                    iconAnchor: isSelected ? [17, 17] : [14, 14]
+                });
+                const marker = L.marker([place.lat, place.lng], { icon }).addTo(map);
+                marker.bindPopup(place.name);
+                marker.on('click', () => selectPlace(place.id));
+                return marker;
+            });
+        }
+
+        function getDistanceKm(from, to) {
+            const radians = value => value * Math.PI / 180;
+            const latDelta = radians(to.lat - from.lat);
+            const lngDelta = radians(to.lng - from.lng);
+            const a = Math.sin(latDelta / 2) ** 2 +
+                Math.cos(radians(from.lat)) * Math.cos(radians(to.lat)) *
+                Math.sin(lngDelta / 2) ** 2;
+            return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        function drawRouteLine(place) {
+            if (!map) return;
+            if (activePolyline) map.removeLayer(activePolyline);
+            activePolyline = L.polyline(
+                [[currentOrigin.lat, currentOrigin.lng], [place.lat, place.lng]],
+                { color: '#5E5CE6', weight: 5, opacity: 0.8, dashArray: '8, 8' }
+            ).addTo(map);
+            map.fitBounds(activePolyline.getBounds(), { padding: [50, 50], maxZoom: 17 });
+        }
+
+        function updatePanelUI(place) {
+            document.getElementById('panel-title').textContent = place.name;
+            document.getElementById('panel-badge').textContent = place.category;
+            const distance = getDistanceKm(currentOrigin, place);
+            document.getElementById('panel-distance').textContent = `${distance.toFixed(2)} km`;
+            document.getElementById('panel-time').textContent = `~${Math.max(1, Math.round(distance / 4.5 * 60))} mins`;
+            document.getElementById('distance-origin-label').textContent = `Approx. distance from ${currentOrigin.name}`;
+            const mapsUrl = new URL('https://www.google.com/maps/dir/');
+            mapsUrl.searchParams.set('api', '1');
+            mapsUrl.searchParams.set('origin', `${currentOrigin.lat},${currentOrigin.lng}`);
+            mapsUrl.searchParams.set('destination', `${place.lat},${place.lng}`);
+            mapsUrl.searchParams.set('travelmode', 'walking');
+            document.getElementById('btn-google-directions').href = mapsUrl.toString();
+            const list = document.getElementById('instructions-list');
+            list.replaceChildren();
+            const item = document.createElement('div');
+            item.className = 'flex items-start gap-2 p-2 rounded-lg bg-slate-100/80 border border-slate-200/70 text-slate-700';
+            const icon = document.createElement('i');
+            icon.className = `fa-solid ${place.icon} mt-0.5 text-uninear-purple`;
+            const description = document.createElement('span');
+            description.className = 'font-medium';
+            description.textContent = place.description;
+            item.append(icon, description);
+            list.appendChild(item);
+        }
+
+        function selectPlace(placeId) {
+            const place = CAMPUS_PLACES.find(item => item.id === placeId);
+            if (!place) return;
+            selectedPlace = place;
+            const select = document.getElementById('place-select');
+            if ([...select.options].some(option => option.value === placeId)) select.value = placeId;
+            renderPlaceMarkers();
+            drawRouteLine(place);
+            updatePanelUI(place);
+        }
+
+        function openGoogleMap() {
+            window.open(document.getElementById('btn-google-directions').href, '_blank', 'noopener,noreferrer');
+        }
+
+        function findMyLocation() {
+            if (!navigator.geolocation) {
+                showNotification('Location is not supported by this browser.');
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(position => {
+                currentOrigin = { name: 'your location', lat: position.coords.latitude, lng: position.coords.longitude };
+                if (userMarker) map.removeLayer(userMarker);
+                userMarker = L.circleMarker([currentOrigin.lat, currentOrigin.lng], {
+                    radius: 8, color: '#fff', weight: 3, fillColor: '#10b981', fillOpacity: 1
+                }).addTo(map).bindPopup('Your location');
+                drawRouteLine(selectedPlace);
+                updatePanelUI(selectedPlace);
+                showNotification('Your location is shown. Estimates are straight-line distances.');
+            }, error => {
+                const message = error.code === error.PERMISSION_DENIED
+                    ? 'Location permission was denied. You can still explore from the Main Gate.'
+                    : 'Could not get your location. You can still explore from the Main Gate.';
+                showNotification(message);
+            }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
+        }
+
+        function zoomInMap() { map.zoomIn(); }
+        function zoomOutMap() { map.zoomOut(); }
+        function recenterMap() {
+            map.setView([currentOrigin.lat, currentOrigin.lng], 16);
+            showNotification(`Map centered on ${currentOrigin.name}.`);
+        }
+
+        function showNotification(msg) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'pointer-events-auto bg-slate-900 text-white text-xs font-bold px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 transform transition-all duration-300 translate-y-2 opacity-0';
+            toast.innerHTML = `<i class="fa-solid fa-circle-info text-uninear-purple"></i> <span>${msg}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.remove('translate-y-2', 'opacity-0'), 10);
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
