@@ -129,6 +129,20 @@ app.use((error, _request, response, _next) => {
     response.status(500).json({ error: 'An unexpected server error occurred.' });
 });
 
+app.get('/api/debug-db', async (req, res) => {
+  try {
+    const { all } = require('./config/db');
+    const rows = await all('SELECT * FROM place');
+    res.json(rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
+
 let server;
 
 async function start() {
