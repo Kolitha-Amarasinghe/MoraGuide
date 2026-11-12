@@ -3,6 +3,7 @@ require('dotenv').config();
 const fs = require('node:fs');
 const path = require('node:path');
 const express = require('express');
+const cors = require('cors');
 const helmet = require('helmet');
 const { connectToDatabase, closeDatabase, isDatabaseReady } = require('./config/db');
 const { profileImageDirectory } = require('./config/profileImages');
@@ -21,21 +22,16 @@ app.disable('x-powered-by');
 const frontendDist = path.resolve(__dirname, '..', 'moraguide-frontend', 'dist');
 const frontendEntry = path.join(frontendDist, 'index.html');
 
+app.use(cors({
+    origin: [...allowedFrontendOrigins],
+    credentials: true,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+}));
 app.use((request, response, next) => {
     const origin = request.get('Origin');
-    if (origin && allowedFrontendOrigins.size > 0) {
-        if (!allowedFrontendOrigins.has(origin)) {
-            return response.status(403).json({ error: 'This origin is not allowed.' });
-        }
-        response.set({
-            'Access-Control-Allow-Origin': origin,
-            'Access-Control-Allow-Credentials': 'true',
-            'Access-Control-Allow-Methods': 'GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
-            Vary: 'Origin'
-        });
+    if (origin && !allowedFrontendOrigins.has(origin)) {
+        return response.status(403).json({ error: 'This origin is not allowed.' });
     }
-    if (request.method === 'OPTIONS') return response.sendStatus(204);
     next();
 });
 
